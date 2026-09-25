@@ -1,0 +1,15 @@
+{# @var plugin \ContentReactor\Dynex\Plugin #}
+{# @var settings \ContentReactor\Dynex\Models\Settings #}
+
+{% import '_includes/forms.twig' as forms %}
+
+{{ forms.textField({
+	first: true,
+	label: 'Plugin Name'|t('dynex'),
+	instructions: 'How the plugin is labeled in the control panel, including the main menu. Leave blank to use the default name.'|t('dynex'),
+	id: 'pluginName',
+	name: 'pluginName',
+	value: settings.pluginName,
+	placeholder: plugin.defaultName,
+	errors: settings.getErrors('pluginName'),
+}) }}

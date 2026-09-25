@@ -1,0 +1,248 @@
+:root {
+  --left-space: 2rem;
+  --right-space: calc(-1 * var(--left-space));
+  --base-sidebar-width: 400px;
+  --designer-space: 600px;
+}
+
+#element-sources-wrapper-toggle {
+  margin-block: var(--xl) var(--m);
+  display: block;
+}
+
+#element-sources-wrapper {
+  margin-block: var(--m);
+  max-height: 400px;
+  overflow: auto;
+}
+
+.draghelper {
+  width: calc(var(--sidebar-width) - 43px) !important;
+  border-radius: var(--medium-border-radius) !important;
+}
+
+.fld-element .push-element {
+  display: none;
+  inset: 0;
+  visibility: hidden;
+  opacity: 0;
+  overflow: hidden;
+  border-color: #fefefe;
+  border-style: solid;
+  border-width: 0;
+  background: #e4edf6;
+  color: #596673;
+  text-align: center;
+  line-height: 45px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.fld-element .icon-holder {
+  display: none;
+}
+
+body .layoutdesigner.exporter-designer.layoutdesigner.exporter-designer {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+  padding-right: var(--sidebar-width);
+  max-width: calc(var(--designer-space) + var(--sidebar-width));
+  min-height: calc(500px + var(--nesting-levels, 0) * 4rem);
+  background-clip: padding-box;
+  background-color: var(--input-bg);
+  border: var(--input-border);
+  border-radius: var(--input-border-radius);
+}
+body .layoutdesigner.exporter-designer .fld-workspace {
+  flex: 1;
+  padding-block: 24px;
+  padding-inline: 24px 0;
+  background-color: var(--gray-050);
+  background-image: linear-gradient(to right, var(--gray-100) 1px, transparent 0), linear-gradient(to bottom, var(--gray-100) 1px, transparent 1px);
+  background-position: -1px -1px;
+  background-size: 24px 24px;
+  box-shadow: inset 0 1px 3px -1px #acbed2;
+}
+body .layoutdesigner.exporter-designer .fld-workspace .fld-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+body .layoutdesigner.exporter-designer .fld-workspace .fld-tab {
+  width: calc(var(--designer-space) - 25px);
+  padding-bottom: 0;
+}
+body .layoutdesigner.exporter-designer .fld-workspace .fld-tab .tabs .tab span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+body .layoutdesigner.exporter-designer .fld-workspace .fld-tab .fld-tabcontent {
+  min-height: 75px;
+}
+body .layoutdesigner.exporter-designer .fld-workspace .fld-element {
+  padding-inline: 0.5rem;
+}
+body .layoutdesigner.exporter-designer .fld-workspace .fld-element .remove-element {
+  border-left-width: 2px;
+  border-right-width: 2px;
+  position: absolute;
+  right: 2rem;
+  left: calc(100% - 4rem);
+}
+body .layoutdesigner.exporter-designer .fld-workspace .fld-element:hover .field-name {
+  padding-right: 2rem;
+}
+body .layoutdesigner.exporter-designer .fld-workspace .fld-element:hover .remove-element {
+  display: block;
+  visibility: visible;
+  opacity: 1;
+}
+body .layoutdesigner.exporter-designer .fld-workspace .fld-element .settings.icon {
+  width: 1rem;
+  text-align: center;
+  margin-left: 0.5rem;
+}
+body .layoutdesigner.exporter-designer .fld-element + .fld-element {
+  margin-top: 7px;
+}
+body .layoutdesigner.exporter-designer .fld-sidebar {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-end: 0;
+  box-sizing: border-box;
+  width: calc(var(--sidebar-width) - var(--nesting-level, 0) * 14px);
+  height: calc(100% - var(--nesting-level, 0) * 4rem);
+  overflow: auto;
+  padding: 0 14px 14px;
+  background-color: var(--white);
+  box-shadow: 0 0 0 1px rgba(31, 41, 51, 0.1), 0 2px 5px -2px rgba(31, 41, 51, 0.2);
+}
+body .layoutdesigner.exporter-designer .fld-sidebar .btngroup {
+  margin-bottom: 14px;
+}
+body .layoutdesigner.exporter-designer .fld-sidebar .fld-library {
+  display: block;
+  height: auto;
+  background-color: transparent;
+  box-shadow: none;
+}
+body .layoutdesigner.exporter-designer .fld-sidebar .fld-field-group h6 {
+  margin-bottom: 7px;
+}
+body .layoutdesigner.exporter-designer .fld-sidebar .filtered {
+  display: none !important;
+}
+body .layoutdesigner.exporter-designer .fld-sidebar .sidebar-name-wrapper {
+  position: sticky;
+  top: 0;
+  margin-inline: -0.875rem;
+  padding: 0.875rem 0.875rem 1rem;
+  background-color: #fff;
+}
+body .layoutdesigner.exporter-designer .fld-sidebar .sidebar-name-wrapper .sidebar-name {
+  position: relative;
+  color: var(--medium-text-color);
+  background-color: var(--gray-100);
+  border-radius: var(--medium-border-radius);
+  box-shadow: inset 0 0 0 1px var(--hairline-color);
+  text-align: center;
+  padding: 8px 10px;
+  user-select: none;
+}
+body .layoutdesigner.exporter-designer .fld-sidebar .sidebar-name-wrapper .sidebar-close {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  width: 24px;
+  height: 24px;
+  transform: translateY(-50%);
+  border-radius: var(--small-border-radius);
+  cursor: pointer;
+}
+body .layoutdesigner.exporter-designer .fld-sidebar .sidebar-name-wrapper .sidebar-close:hover, body .layoutdesigner.exporter-designer .fld-sidebar .sidebar-name-wrapper .sidebar-close:focus-visible {
+  background-color: var(--gray-200);
+}
+body .layoutdesigner.exporter-designer .fld-sidebar.nested .sidebar-name {
+  padding-inline: 32px;
+}
+body .layoutdesigner.exporter-designer .fld-sidebar .fld-library .fld-field-group {
+  margin-top: 0.875rem;
+}
+body .layoutdesigner.exporter-designer .fld-sidebar.nested {
+  top: calc(var(--nesting-level, 0) * 4rem);
+  box-shadow: 0 0 4px 0 rgba(0, 0, 0, 0.25);
+}
+body .layoutdesigner.exporter-designer .fld-sidebar:not(:last-child) {
+  overflow: hidden;
+}
+body .layoutdesigner.exporter-designer .fld-sidebar:not(:last-child) .fld-field-library {
+  opacity: 0.5;
+}
+body .layoutdesigner.exporter-designer .fld-sidebar:first-child:last-child .fld-field-library {
+  opacity: 1;
+}
+body .layoutdesigner.exporter-designer .fld-library :not([data-name=attributes]) .fld-element .add-element {
+  display: block;
+  right: 100%;
+  border-right-width: 2px;
+  border-top-left-radius: var(--medium-border-radius);
+  border-bottom-left-radius: var(--medium-border-radius);
+  position: absolute;
+  left: var(--right-space);
+}
+body .layoutdesigner.exporter-designer .fld-library :not([data-name=attributes]) .fld-element.complex-field .icon-holder {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 1.5rem;
+  border-left: 0.125rem solid white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+body .layoutdesigner.exporter-designer .fld-library :not([data-name=attributes]) .fld-element.complex-field .icon-holder svg {
+  width: 1rem;
+  height: auto;
+}
+body .layoutdesigner.exporter-designer .fld-library :not([data-name=attributes]) .fld-element.title-field {
+  --bg-icon: url("data:image/svg+xml,%3Csvg width='15' height='15' viewBox='0 0 15 15' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1.25 1.25L13.75 13.75' stroke='%23A3B2C0' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3C/path%3E%3Cpath d='M13.75 1.25L1.25 13.75' stroke='%23A3B2C0' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3C/path%3E%3C/svg%3E");
+  --bg-size: 0.75rem;
+  pointer-events: none;
+  box-shadow: 0 0 3px 0 rgba(0, 0, 0, 0.25);
+}
+body .layoutdesigner.exporter-designer .fld-library :not([data-name=attributes]) .fld-element.title-field:after {
+  pointer-events: initial;
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 1.5rem;
+  border-left: 0.125rem solid white;
+  cursor: pointer;
+  background-image: var(--bg-icon);
+  background-size: var(--bg-size);
+  background-repeat: no-repeat;
+  background-position: center;
+}
+body .layoutdesigner.exporter-designer .fld-library :not([data-name=attributes]) .fld-element:not(.block-field):hover {
+  left: var(--left-space);
+  width: calc(100% - var(--left-space));
+  padding-right: calc(10px + var(--left-space));
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+body .layoutdesigner.exporter-designer .fld-library :not([data-name=attributes]) .fld-element:not(.block-field):hover .add-element {
+  visibility: visible;
+  opacity: 1;
+}
+
+body:not(.dragging) .fld-element.block-field {
+  cursor: revert;
+}

@@ -1,0 +1,99 @@
+{% extends '@dynex/layouts/index.twig' %}
+{% set fullPageForm = true %}
+{% set formActions = [
+	{
+		label: 'Save and continue editing'|t('dynex'),
+		redirect: "dynex/exporters/{id}"|hash,
+		shortcut: true,
+		retainScroll: true,
+	},
+] %}
+
+{% import '_includes/forms.twig' as forms %}
+
+{% set crumbs = [
+	{ label: craft.dynex.pluginName, url: url('dynex') },
+	{ label: 'Exporters' | t('dynex'), url: url('dynex/exporters') },
+] %}
+
+{% block content %}
+	{{ actionInput('dynex/exporters/save-exporter') }}
+	{{ redirectInput('dynex/exporters') }}
+	{% if exporter.id %}{{ hiddenInput('exporterId', exporter.id) }}{% endif %}
+
+	{{ forms.textField({
+		first: true,
+		label: 'Name' | t('dynex'),
+		instructions: "What this exporter will be called in the control panel."|t('dynex'),
+		id: 'name',
+		name: 'name',
+		value: exporter.name ?? '',
+		errors: exporter.getErrors('name'),
+		autofocus: true,
+		required: true
+	}) }}
+
+	{{ forms.textField({
+		label: "Handle"|t('dynex'),
+		instructions: "How you’ll refer to this exporter in code."|t('dynex'),
+		id: 'handle',
+		name: 'handle',
+		class: 'code',
+		autocorrect: false,
+		autocapitalize: false,
+		value: exporter.handle,
+		errors: exporter.getErrors('handle'),
+		required: true
+	}) }}
+
+	<hr>
+
+	{{ forms.selectField({
+		label: 'Element Type'|t('dynex'),
+		instructions: 'What type of element can this exporter be used for?'|t('dynex'),
+		id: 'element-type',
+		name: 'elementType',
+		options: elementTypes,
+		value: exporter.elementType,
+		errors: exporter.getErrors('elementType'),
+		required: true,
+		inputAttributes: {
+			'data-element-type': exporter.elementType,
+			'data-exporter-id': exporter.id,
+			'data-fresh': 1,
+		}
+	}) }}
+
+	<button
+		id="element-sources-wrapper-toggle"
+		class="btn{% if exporter.elementType is empty %} hidden{% endif %}"
+		type="button"
+		aria-controls="element-sources-wrapper"
+		aria-expanded="true"
+	>{{ 'Collapse the Sources list'|t('dynex') }}</button>
+
+	<div
+		id="element-sources-wrapper"
+		{% if exporter.elementType is empty %}class="hidden"{% endif %}
+	>
+		{% if exporter.elementType %}
+			{{ include('@dynex/exporters/sources.twig', {
+				elementType: exporter.elementType,
+				elementSources: elementSources,
+				selectedSources: exporter.elementSources ?? '*',
+				elementSourcesErrors: exporter.getErrors('elementSources'),
+			}) }}
+		{% endif %}
+	</div>
+
+	{# Re-rendered by editexporter.js when the element type or sources change #}
+	<div id="exporter-layout-designer">
+		{% if exporter.elementType and exporter.elementSources %}
+			{{ include('@dynex/exporters/_layout-designer.twig', { exporter: exporter }) }}
+		{% endif %}
+	</div>
+{% endblock %}
+
+{% if not exporter.handle %}
+	{% js "new Craft.HandleGenerator('#name', '#handle');" %}
+{% endif %}

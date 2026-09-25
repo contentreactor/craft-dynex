@@ -1,0 +1,17 @@
+{% extends '_layouts/cp.twig' %}
+
+{% if title is not defined %}
+	{% set title = craft.dynex.pluginName %}
+{% endif %}
+
+{#{% block content %}#}
+{#	{% block content %}{% endblock %}#}
+{#	{% if block('footerButton') is defined %}#}
+{#		<hr>#}
+{#		<div id="plugin-footer">#}
+{#			<div class="footer-left">#}
+{#				{{ block('footerButton') }}#}
+{#			</div>#}
+{#		</div>#}
+{#	{% endif %}#}
+{#{% endblock %}#}

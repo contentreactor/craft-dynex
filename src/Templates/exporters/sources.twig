@@ -1,0 +1,16 @@
+{% import '_includes/forms.twig' as forms %}
+
+{# `*` only checks anything with the "All" option; editexporter.js posts it as `elementSources` #}
+{{ forms.checkboxSelectField({
+	label: 'Element Sources'|t('dynex'),
+	instructions: 'Which type of {elementPlural} would you like to be exportable with this exporter?'|t('dynex', {
+		elementPlural: elementPlural
+	}),
+	id: 'element-sources',
+	name: 'elementSources',
+	options: elementSources,
+	showAllOption: true,
+	values: selectedSources,
+	required: true,
+	errors: elementSourcesErrors,
+}) }}

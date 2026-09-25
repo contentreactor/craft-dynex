@@ -1,0 +1,2 @@
+{% set fieldLayout = fieldLayout ?? create('ContentReactor\\Dynex\\Models\\ExporterFieldLayout') %}
+{{ fieldLayoutDesigner(fieldLayout, _context) | raw }}

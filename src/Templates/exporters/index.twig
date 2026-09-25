@@ -1,0 +1,69 @@
+{% extends '@dynex/layouts/index.twig' %}
+
+{% import '_includes/forms' as forms %}
+{% set title = 'Exporters' | t('dynex') %}
+
+{% set crumbs = [
+	{ label: craft.dynex.pluginName, url: url('dynex') },
+	{ label: 'Exporters' | t('dynex'), url: url('dynex/exporters') },
+] %}
+{% do view.registerAssetBundle('craft\\web\\assets\\admintable\\AdminTableAsset') -%}
+
+{% set selectedTab = 'exporters' %}
+{% set exporters = craft.dynex.getExporters() %}
+
+{% block actionButton %}
+	<a class="btn submit add icon" href="{{ url('dynex/exporters/new') }}">{{ 'New exporter' | t('dynex') }}</a>
+{% endblock %}
+
+{% block content %}
+	{% if exporters is not empty %}
+		{{ forms.selectField({
+			label: 'Selected Exporter' | t('dynex'),
+			id: 'exporterId',
+			name: 'exporterId',
+			options: [{ value: '', label: 'Select exporter' | t('dynex') }] | merge(exporters | map(e => { value: e.id, label: e.name })),
+			instructions: 'The exporter offered to you in element index export menus.' | t('dynex'),
+			value: craft.dynex.selectedExporter.id ?? null,
+		}) }}
+	{% endif %}
+
+	<div id="exporters-vue-admin-table"></div>
+{% endblock %}
+
+{% set tableData = exporters | map(exporter => {
+	id: exporter.id,
+	title: exporter.name | t,
+	url: url('dynex/exporters/' ~ exporter.id),
+	name: exporter.name | t | e,
+	handle: exporter.handle,
+	elementType: exporter.getElementTypeName(),
+}) %}
+
+{% js %}
+var columns = [
+    { name: '__slot:title', title: Craft.t('dynex', 'Name') },
+    { name: '__slot:handle', title: Craft.t('dynex', 'Handle') },
+	{ name: 'elementType', title: Craft.t('dynex', 'Element Type') },
+]
+
+new Craft.VueAdminTable({
+    fullPane: false,
+    columns: columns,
+    container: '#exporters-vue-admin-table',
+    deleteAction: '{{ 'dynex/exporters/delete-exporter' }}',
+	reorderAction: '{{ 'dynex/exporters/reorder-exporters' }}',
+	tableData: {{ tableData | json_encode | raw }},
+	minItems: 1,
+})
+{% endjs %}
+
+{% js %}
+document.getElementById('exporterId')?.addEventListener('change', e => {
+	Craft.sendActionRequest('POST', 'dynex/exporters/set', {
+		data: { exporterId: e.target.value },
+	})
+		.then(({ data }) => Craft.cp.displayNotice(data.message))
+		.catch(({ response }) => Craft.cp.displayError(response?.data?.message))
+})
+{% endjs %}

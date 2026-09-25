@@ -1,0 +1,8 @@
+{# The field layout designer, rendered with the edit page and again by `dynex/exporters/layout-designer` #}
+{% import '@dynex/macros/index.twig' as dynex %}
+
+<hr>
+{{ dynex.exporterLayoutDesigner({
+	exporter: exporter,
+	customizableTabs: false,
+}) }}
