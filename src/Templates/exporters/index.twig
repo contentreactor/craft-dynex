@@ -29,6 +29,22 @@
 	{% endif %}
 
 	<div id="exporters-vue-admin-table"></div>
+
+	{% if craft.dynex.isPro %}
+		<hr>
+		<form method="post" accept-charset="UTF-8" enctype="multipart/form-data" id="dynex-import-exporter">
+			{{ csrfInput() }}
+			{{ actionInput('dynex/exporters/import-definition') }}
+			{{ forms.fileField({
+				label: 'Import an Exporter'|t('dynex'),
+				instructions: 'An exporter’s JSON file, downloaded from its page in this project or another. Fields are matched by their UIDs.'|t('dynex'),
+				id: 'definition',
+				name: 'definition',
+				inputAttributes: { accept: '.json,application/json' },
+			}) }}
+			<button type="submit" class="btn">{{ 'Import'|t('dynex') }}</button>
+		</form>
+	{% endif %}
 {% endblock %}
 
 {% set tableData = exporters | map(exporter => {
@@ -38,6 +54,9 @@
 	name: exporter.name | t | e,
 	handle: exporter.handle,
 	elementType: exporter.getElementTypeName(),
+	import: exporter.importable and craft.dynex.isPro and currentUser.can('dynex:import')
+		? tag('a', { href: url('dynex/exporters/' ~ exporter.id ~ '/import'), text: 'Import'|t('dynex') })
+		: '',
 }) %}
 
 {% js %}
@@ -45,6 +64,7 @@ var columns = [
     { name: '__slot:title', title: Craft.t('dynex', 'Name') },
     { name: '__slot:handle', title: Craft.t('dynex', 'Handle') },
 	{ name: 'elementType', title: Craft.t('dynex', 'Element Type') },
+	{ name: 'import', title: Craft.t('dynex', 'Import') },
 ]
 
 new Craft.VueAdminTable({

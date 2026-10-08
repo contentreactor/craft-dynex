@@ -13,3 +13,16 @@
 	placeholder: plugin.defaultName,
 	errors: settings.getErrors('pluginName'),
 }) }}
+
+{{ forms.textField({
+	label: 'Keep Export Runs For'|t('dynex'),
+	instructions: 'How many days export runs and their files are kept. Enter 0 to keep them until they’re deleted.'|t('dynex'),
+	tip: plugin.isPro() ? null : plugin.proMessage('Export runs'|t('dynex'), plugin.pluginName),
+	id: 'exportRetentionDays',
+	name: 'exportRetentionDays',
+	type: 'number',
+	min: 0,
+	size: 5,
+	value: settings.exportRetentionDays,
+	errors: settings.getErrors('exportRetentionDays'),
+}) }}

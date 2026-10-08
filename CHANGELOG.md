@@ -1,35 +1,31 @@
 # Release Notes for Dynamic Exporter
 
-## Unreleased
+## 1.1.0 - 2026-10-08
 
-### Changed
-- Fields, attributes, block types and values are read with Field Value Parser. Exporters and their field mappings stay as they are.
-- Entries have Author IDs and Enabled attributes, and addresses an Address Line 3 attribute, from Field Value Parser.
-- Dynex no longer requires developion/toolbox.
-
-### Fixed
-- Exporters can be deleted from the exporters list.
-
-## 2.0.0
+> [!IMPORTANT]
+> This release adds database migrations. Run `php craft up` after updating.
+>
+> Dynamic Exporter now comes in Lite and Pro editions, and existing installs update to Lite. Importable exporters, imports, export runs and moving exporters between projects need Pro.
 
 ### Added
-- Added Craft CMS 5 support. Requires Craft CMS 5.8.0 or later, and developion/toolbox 2.0.
-- Content Block fields can be expanded into their fields, like Matrix and Neo fields.
-- Addresses fields can be expanded into the attributes and fields of their addresses, like relation fields.
-- Entries have an Authors attribute. Multiple authors spread across rows, like relation fields.
+- Lite and Pro editions. Lite has the exporters, the layout designer, column formats and element index exports. Pro adds importable exporters and imports, export runs, scheduling, delivery and moving exporters between projects.
+- Column formats: dates in a date format, related elements by their IDs, UIDs, URLs or slugs, options by their labels, and switches as Yes/No or true/false.
+- Exporters can join lists of values into their cell, with a separator, instead of giving them a row each.
+- Exporters can be importable (Pro). Their files start with each element’s ID, and its site’s handle on multi-site installs, on every row of the element. Top-level fields and writable attributes hold values in the format they’re imported back from: related elements and authors as IDs, dates in ISO 8601, and other fields’ values the way Craft stores them. Everything else is exported for reading, as before.
+- Importable exporters’ files can be imported back as CSV, XLSX or JSON files (Pro). Imports list what they change, and the rows they can’t match, before anything is saved. They save the elements from the queue, leaving alone values that changed since the upload, and need the new “Import files into importable exporters’ elements” permission.
+- Export runs (Pro): exporters export in the queue, with their own format, site and filters, keep their files in a run history for as many days as the new plugin setting says, and email them to delivery addresses.
+- The `dynex/exports/run`, `dynex/exports/list` and `dynex/exports/prune` console commands (Pro), e.g. to schedule export runs.
+- Exporters can be downloaded as JSON and imported into other projects (Pro), matching fields by their UIDs.
 
 ### Changed
-- Matrix fields expand into their entry types, with the names and handles the Matrix field gives them.
-- Fields use the handles and labels their field layouts give them.
-- Authors and uploaders are offered from Craft Team up, and user groups from Craft Pro up. The plugin’s permissions are registered on every edition but Solo.
-- The field layout designer brings its own frame, workspace and sidebar styles for the Craft 5 control panel.
-- All sources of an element type only offer the fields of top-level elements, not those of entry types only used in Matrix fields.
+- Dynamic Exporter is licensed under the Craft License.
 
 ### Fixed
-- New exporters start with all sources selected, so the field layout designer shows up before the first save.
+- Saved exporters’ pages no longer fail to render when Craft’s dev mode is on.
 
-### Upgrading
-- Field mappings from 1.x are migrated: the `author` attribute becomes `authors`.
-
-## 1.0.0
+## 1.0.0 - 2026-09-25
 - Initial release
+
+### Upgrading from `contentreactor/dynex`
+- Require `contentreactor/craft-dynex` instead. The plugin handle, `dynex`, and its exporters stay the same.
+- Field mappings from Craft 4 keep working. Run `php craft up` after updating: the `author` attribute becomes `authors`, as Craft 5 entries can have several authors.

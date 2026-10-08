@@ -39,4 +39,20 @@ class DynexVariable extends ServiceLocator
 	{
 		return Plugin::getInstance()->getSettings();
 	}
+
+	/**
+	 * Whether the Pro edition's features are available
+	 */
+	public function getIsPro(): bool
+	{
+		return Plugin::getInstance()->isPro();
+	}
+
+	/**
+	 * Tells a feature needs the Pro edition
+	 */
+	public function proMessage(string $feature): string
+	{
+		return Plugin::proMessage($feature, Plugin::getInstance()->getPluginName());
+	}
 }

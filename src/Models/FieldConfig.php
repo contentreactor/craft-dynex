@@ -12,11 +12,18 @@ use craft\base\{
 	FieldInterface,
 	Model,
 };
+use craft\fields\{
+	BaseOptionsField,
+	BaseRelationField,
+	Date as DateField,
+	Lightswitch as LightswitchField,
+};
 use craft\helpers\{
 	ArrayHelper,
 	Cp,
 	Html,
 };
+use DateTime;
 
 class FieldConfig extends Model
 {
@@ -24,6 +31,23 @@ class FieldConfig extends Model
 	public const TYPE_CALLABLE = 'callable';
 	public const TYPE_FIELD = 'field';
 	public const TYPE_NESTED = 'nested';
+
+	/** Related elements by their IDs, UIDs, URLs or slugs, instead of their default values, e.g. entries' titles */
+	public const FORMAT_ID = 'id';
+	public const FORMAT_UID = 'uid';
+	public const FORMAT_URL = 'url';
+	public const FORMAT_SLUG = 'slug';
+	/** Options fields' options by their labels instead of their values */
+	public const FORMAT_LABEL = 'label';
+	/** Switches as Yes/No, or true/false, instead of 1/0 */
+	public const FORMAT_YES_NO = 'yesNo';
+	public const FORMAT_TRUE_FALSE = 'trueFalse';
+	/** The date formats offered, besides ISO 8601 */
+	public const DATE_FORMATS = ['Y-m-d', 'Y-m-d H:i', 'd.m.Y', 'd.m.Y H:i', 'd/m/Y', 'm/d/Y', 'U'];
+
+	/** Attributes holding dates, whose values can't tell their type when they're empty */
+	private const DATE_ATTRIBUTES = ['postDate', 'expiryDate', 'dateCreated', 'dateUpdated', 'dateModified', 'lastLoginDate'];
+	private const BOOLEAN_ATTRIBUTES = ['enabled', 'admin'];
 
 	/** @var 'field'|'attribute'|'callable'|'nested' */
 	public string $type;
@@ -52,6 +76,11 @@ class FieldConfig extends Model
 	 * @var class-string<ElementInterface>|null
 	 */
 	public ?string $relatedElementType = null;
+	/**
+	 * How the column shows the values it exports for reading, e.g. a date format, or related elements' IDs. `null` shows them
+	 * the default way. Set on the root of a nesting chain, for the value at its end.
+	 */
+	public ?string $format = null;
 	public string $uid;
 
 	/**
@@ -202,7 +231,7 @@ class FieldConfig extends Model
 	 */
 	public function getSettingsHtml(): string
 	{
-		return Cp::textFieldHtml([
+		$html = Cp::textFieldHtml([
 			'label' => Craft::t('app', 'Label'),
 			'instructions' => Craft::t('dynex', 'The column heading in the exported file. Leave blank to use the default.'),
 			'id' => 'label',
@@ -210,6 +239,68 @@ class FieldConfig extends Model
 			'value' => $this->label !== $this->defaultLabel ? $this->label : '',
 			'placeholder' => $this->defaultLabel,
 		]);
+
+		$formats = $this->getFormatOptions();
+		if ($formats !== []) {
+			$html .= Cp::selectFieldHtml([
+				'label' => Craft::t('dynex', 'Format'),
+				'instructions' => Craft::t('dynex', 'How the column shows its values. Importable exporters export the values they import in their own format.'),
+				'id' => 'format',
+				'name' => 'format',
+				'options' => $formats,
+				'value' => $this->format ?? '',
+			]);
+		}
+
+		return $html;
+	}
+
+	/**
+	 * The formats the value at the end of the nesting chain can be shown in, with the default way first
+	 *
+	 * @return array<int, array{label: string, value: string}>
+	 */
+	public function getFormatOptions(): array
+	{
+		$leaf = $this->getLeaf();
+		$className = (string)$leaf->className;
+		$handle = is_string($leaf->handle) ? $leaf->handle : '';
+		$default = ['label' => Craft::t('dynex', 'Default'), 'value' => ''];
+
+		return match (true) {
+			is_subclass_of($className, BaseRelationField::class), $leaf->type === self::TYPE_ATTRIBUTE && $leaf->relatedElementType !== null => [
+				$default,
+				['label' => Craft::t('app', 'ID'), 'value' => self::FORMAT_ID],
+				['label' => Craft::t('app', 'UID'), 'value' => self::FORMAT_UID],
+				['label' => Craft::t('app', 'URL'), 'value' => self::FORMAT_URL],
+				['label' => Craft::t('app', 'Slug'), 'value' => self::FORMAT_SLUG],
+			],
+			is_a($className, DateField::class, true), $leaf->type === self::TYPE_ATTRIBUTE && in_array($handle, self::DATE_ATTRIBUTES, true) => [
+				['label' => Craft::t('dynex', 'ISO 8601 (default)'), 'value' => ''],
+				...array_map(fn(string $format): array => [
+					'label' => $format === 'U' ? Craft::t('dynex', 'Unix timestamp') : (new DateTime('2026-12-31 18:30'))->format($format),
+					'value' => $format,
+				], self::DATE_FORMATS),
+			],
+			is_subclass_of($className, BaseOptionsField::class) => [
+				['label' => Craft::t('dynex', 'Values (default)'), 'value' => ''],
+				['label' => Craft::t('dynex', 'Labels'), 'value' => self::FORMAT_LABEL],
+			],
+			is_a($className, LightswitchField::class, true), $leaf->type === self::TYPE_ATTRIBUTE && in_array($handle, self::BOOLEAN_ATTRIBUTES, true) => [
+				['label' => '1/0 (' . Craft::t('dynex', 'default') . ')', 'value' => ''],
+				['label' => Craft::t('app', 'Yes') . '/' . Craft::t('app', 'No'), 'value' => self::FORMAT_YES_NO],
+				['label' => 'true/false', 'value' => self::FORMAT_TRUE_FALSE],
+			],
+			default => [],
+		};
+	}
+
+	/**
+	 * Whether a column format is one of the date formats offered
+	 */
+	public static function isDateFormat(?string $format): bool
+	{
+		return $format !== null && in_array($format, self::DATE_FORMATS, true);
 	}
 
 	/**

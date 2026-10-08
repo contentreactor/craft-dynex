@@ -46,6 +46,33 @@
 		required: true
 	}) }}
 
+	{{ forms.lightswitchField({
+		label: 'Importable'|t('dynex'),
+		instructions: 'Whether files it exports can be edited and imported back. They start with each element’s ID, and hold related elements as IDs.'|t('dynex'),
+		tip: craft.dynex.isPro ? null : craft.dynex.proMessage('Importable exporters'|t('dynex')),
+		id: 'importable',
+		name: 'importable',
+		on: exporter.importable,
+		disabled: not craft.dynex.isPro,
+		errors: exporter.getErrors('importable'),
+	}) }}
+
+	{% if exporter.importable and columns is not empty %}
+		{% set importedLabels = columns|filter(c => c.isImportable())|map(c => c.label) %}
+		{% set readOnlyLabels = columns|filter(c => c.kind == 'readOnly')|map(c => c.label) %}
+		<div class="field" id="importable-columns">
+			<div class="instructions">
+				<p>{{ 'Imported: {columns}'|t('dynex', { columns: importedLabels is not empty ? importedLabels|join(', ') : '–' }) }}</p>
+				{% if readOnlyLabels is not empty %}
+					<p>{{ 'Exported for reading only, and left alone on import: {columns}'|t('dynex', { columns: readOnlyLabels|join(', ') }) }}</p>
+				{% endif %}
+				{% if exporter.id and craft.dynex.isPro and currentUser.can('dynex:import') %}
+					<p><a href="{{ url('dynex/exporters/' ~ exporter.id ~ '/import') }}">{{ 'Import a file'|t('dynex') }}</a></p>
+				{% endif %}
+			</div>
+		</div>
+	{% endif %}
+
 	<hr>
 
 	{{ forms.selectField({
@@ -79,6 +106,7 @@
 		{% if exporter.elementType %}
 			{{ include('@dynex/exporters/sources.twig', {
 				elementType: exporter.elementType,
+				elementPlural: elementPlural,
 				elementSources: elementSources,
 				selectedSources: exporter.elementSources ?? '*',
 				elementSourcesErrors: exporter.getErrors('elementSources'),
@@ -92,6 +120,108 @@
 			{{ include('@dynex/exporters/_layout-designer.twig', { exporter: exporter }) }}
 		{% endif %}
 	</div>
+
+	<hr>
+
+	{{ forms.selectField({
+		label: 'Multiple Values'|t('dynex'),
+		instructions: 'How lists of values, like related elements or nested entries, are laid out. Importable exporters always give them a row each.'|t('dynex'),
+		id: 'multiValueLayout',
+		name: 'multiValueLayout',
+		options: [
+			{ label: 'A row each'|t('dynex'), value: 'rows' },
+			{ label: 'Joined into their cell'|t('dynex'), value: 'joined' },
+		],
+		value: exporter.multiValueLayout,
+		errors: exporter.getErrors('multiValueLayout'),
+	}) }}
+
+	{{ forms.textField({
+		label: 'Value Separator'|t('dynex'),
+		instructions: 'What joins lists of values into their cell.'|t('dynex'),
+		id: 'valueSeparator',
+		name: 'valueSeparator',
+		value: exporter.valueSeparator,
+		size: 5,
+		errors: exporter.getErrors('valueSeparator'),
+	}) }}
+
+	<hr>
+
+	<h2>{{ 'Export Runs'|t('dynex') }}</h2>
+	{% if not craft.dynex.isPro %}
+		<p class="light" id="export-runs-pro">{{ craft.dynex.proMessage('Export runs'|t('dynex')) }}</p>
+	{% else %}
+		<p class="light">{{ 'Export runs export in the queue, keep their files to download later, and can run on a schedule from the console.'|t('dynex') }}</p>
+	{% endif %}
+
+	{{ forms.selectField({
+		label: 'Format'|t('dynex'),
+		id: 'runFormat',
+		name: 'runFormat',
+		options: [
+			{ label: 'CSV', value: 'csv' },
+			{ label: 'XLSX', value: 'xlsx' },
+			{ label: 'JSON', value: 'json' },
+			{ label: 'XML', value: 'xml' },
+		],
+		value: exporter.runFormat,
+		disabled: not craft.dynex.isPro,
+		errors: exporter.getErrors('runFormat'),
+	}) }}
+
+	{% if craft.app.isMultiSite %}
+		{{ forms.selectField({
+			label: 'Site'|t('dynex'),
+			instructions: 'The site whose content runs export.'|t('dynex'),
+			id: 'runSite',
+			name: 'runSite',
+			options: [{ label: 'Primary site'|t('dynex'), value: '' }]|merge(craft.app.sites.allSites|map(site => { label: site.name, value: site.handle })),
+			value: exporter.runSite ?? '',
+			disabled: not craft.dynex.isPro,
+			errors: exporter.getErrors('runSite'),
+		}) }}
+	{% endif %}
+
+	{{ forms.lightswitchField({
+		label: 'Enabled Elements Only'|t('dynex'),
+		id: 'runEnabledOnly',
+		name: 'runEnabledOnly',
+		on: exporter.runEnabledOnly,
+		disabled: not craft.dynex.isPro,
+	}) }}
+
+	{{ forms.textField({
+		label: 'Created Within'|t('dynex'),
+		instructions: 'Only export elements created in the past so many days. Leave blank to export them all.'|t('dynex'),
+		id: 'runCreatedWithinDays',
+		name: 'runCreatedWithinDays',
+		type: 'number',
+		min: 1,
+		size: 5,
+		value: exporter.runCreatedWithinDays,
+		disabled: not craft.dynex.isPro,
+		errors: exporter.getErrors('runCreatedWithinDays'),
+	}) }}
+
+	{{ forms.textareaField({
+		label: 'Email the File To'|t('dynex'),
+		instructions: 'Email addresses each run sends its file to, separated by commas or new lines.'|t('dynex'),
+		id: 'deliveryEmails',
+		name: 'deliveryEmails',
+		value: exporter.deliveryEmails,
+		rows: 2,
+		disabled: not craft.dynex.isPro,
+		errors: exporter.getErrors('deliveryEmails'),
+	}) }}
+
+	{% if exporter.id and craft.dynex.isPro %}
+		<p>
+			<a href="{{ url('dynex/exporters/' ~ exporter.id ~ '/runs') }}">{{ 'Export runs'|t('dynex') }}</a>
+			·
+			<a href="{{ url('dynex/exporters/' ~ exporter.id ~ '/definition') }}">{{ 'Download the exporter as JSON'|t('dynex') }}</a>
+		</p>
+	{% endif %}
 {% endblock %}
 
 {% if not exporter.handle %}

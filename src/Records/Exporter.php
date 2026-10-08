@@ -17,6 +17,8 @@ use craft\db\{
  * @property string $elementType
  * @property string|string[] $elementSources
  * @property array<\ContentReactor\Dynex\Models\FieldConfig|array<string, mixed>> $fieldMapping
+ * @property bool $importable
+ * @property array<string, mixed>|string|null $options
  * @property ?int $conditionId
  * @property ?int $sortOrder
  */

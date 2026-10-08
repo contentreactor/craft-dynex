@@ -1,0 +1,10 @@
+{# The label of an import's status, with its status color #}
+{% set statuses = {
+	pending: { label: 'Waiting for review'|t('dynex'), color: 'orange' },
+	queued: { label: 'Queued'|t('dynex'), color: 'blue' },
+	running: { label: 'Running'|t('dynex'), color: 'blue' },
+	done: { label: import.errors is empty ? 'Imported'|t('dynex') : 'Imported with errors'|t('dynex'), color: import.errors is empty ? 'green' : 'orange' },
+	failed: { label: 'Failed'|t('dynex'), color: 'red' },
+} %}
+{% set status = statuses[import.status] ?? { label: import.status, color: 'gray' } %}
+<span class="status-label {{ status.color }}"><span class="status {{ status.color }}"></span><span class="status-label-text">{{ status.label }}</span></span>

@@ -7,7 +7,10 @@ use ContentReactor\Dynex\Events\{
 	ExporterEvent,
 	RegisterExportersEvent,
 };
-use ContentReactor\Dynex\Models\Exporter as ExporterModel;
+use ContentReactor\Dynex\Models\{
+	Exporter as ExporterModel,
+	FieldConfig,
+};
 use ContentReactor\Dynex\Records\Exporter as ExporterRecord;
 use Craft;
 use craft\base\MemoizableArray;
@@ -15,6 +18,7 @@ use craft\db\Query;
 use craft\elements\User;
 use craft\helpers\{
 	Db,
+	Json,
 	StringHelper,
 };
 use InvalidArgumentException;
@@ -26,6 +30,9 @@ use yii\base\{
 
 class Exporters extends Component
 {
+	/** The version of the definitions [[getDefinition()]] makes */
+	public const DEFINITION_VERSION = 1;
+
 	public const EVENT_REGISTER_EXPORTERS = 'eventRegisterExporters';
 	public const EVENT_BEFORE_SAVE_EXPORTER = 'beforeSaveExporter';
 	public const EVENT_AFTER_SAVE_EXPORTER = 'afterSaveExporter';
@@ -75,11 +82,14 @@ class Exporters extends Component
 				->all();
 
 			foreach ($exporterRecords as $exporterRecord) {
-				$exporter = new ExporterModel($exporterRecord->getAttributes(except: [
+				$attributes = $exporterRecord->getAttributes(except: [
 					'dateCreated',
 					'dateUpdated',
 					'dateDeleted',
-				]));
+				]);
+				// MySQL returns booleans as integers
+				$attributes['importable'] = (bool)($attributes['importable'] ?? false);
+				$exporter = new ExporterModel($attributes);
 				$exporters[] = $exporter;
 			}
 
@@ -205,6 +215,8 @@ class Exporters extends Component
 			$exporterRecord->elementType = $exporter->elementType;
 			$exporterRecord->elementSources = $exporter->elementSources;
 			$exporterRecord->fieldMapping = $exporter->fieldMapping;
+			$exporterRecord->importable = $exporter->importable;
+			$exporterRecord->options = $exporter->getOptions();
 			$exporterRecord->conditionId = $exporter->conditionId;
 			$exporterRecord->sortOrder = $exporter->sortOrder;
 			$exporterRecord->uid = $exporter->uid;
@@ -257,6 +269,122 @@ class Exporters extends Component
 		}
 
 		return true;
+	}
+
+	/**
+	 * An exporter as JSON-ready data, to create it in another project with [[createFromDefinition()]]. Fields are referred to by
+	 * their UIDs, which the project config keeps the same in every environment, rather than their IDs.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function getDefinition(ExporterModel $exporter): array
+	{
+		return [
+			'dynexExporter' => self::DEFINITION_VERSION,
+			'name' => $exporter->name,
+			'handle' => $exporter->handle,
+			'elementType' => $exporter->elementType,
+			'elementSources' => $exporter->elementSources,
+			'importable' => $exporter->importable,
+			'options' => $exporter->getOptions(),
+			'fieldMapping' => array_values(array_filter(array_map(
+				fn(FieldConfig $fieldConfig): ?array => $fieldConfig->type === FieldConfig::TYPE_CALLABLE ? null : $this->withFieldUids(Json::decode(Json::encode($fieldConfig))),
+				$exporter->fieldMapping,
+			))),
+		];
+	}
+
+	/**
+	 * Creates an exporter for a user from a definition [[getDefinition()]] made, in this project or another. A name or handle the
+	 * user has for another exporter of the element type gets a number appended.
+	 *
+	 * @param array<string, mixed> $definition
+	 * @return array{0: ExporterModel, 1: string[]} The exporter, unsaved if it doesn't validate, and the labels of mapped fields
+	 * this project doesn't have, which export nothing
+	 * @throws InvalidArgumentException if it isn't a definition of an exporter of an element type this project has
+	 */
+	public function createFromDefinition(array $definition, User $user): array
+	{
+		$elementType = $definition['elementType'] ?? null;
+		if (!isset($definition['dynexExporter']) || !is_string($elementType) || !in_array($elementType, Craft::$app->getElements()->getAllElementTypes(), true)) {
+			throw new InvalidArgumentException(Craft::t('dynex', 'The file isn’t an exporter for an element type this project has.'));
+		}
+
+		$missing = [];
+		$fieldMapping = array_map(function(mixed $config) use (&$missing): FieldConfig {
+			return new FieldConfig($this->withFieldIds((array)$config, $missing));
+		}, (array)($definition['fieldMapping'] ?? []));
+
+		$exporter = new ExporterModel([
+			'userId' => $user->id,
+			'name' => $this->uniqueValue('name', (string)($definition['name'] ?? ''), $elementType, (int)$user->id, ' '),
+			'handle' => $this->uniqueValue('handle', (string)($definition['handle'] ?? ''), $elementType, (int)$user->id),
+			'elementType' => $elementType,
+			'elementSources' => $definition['elementSources'] ?? '*',
+			'importable' => (bool)($definition['importable'] ?? false),
+			'options' => (array)($definition['options'] ?? []),
+		]);
+		$exporter->fieldMapping = $fieldMapping;
+
+		$this->saveExporter($exporter);
+
+		return [$exporter, array_values(array_unique($missing))];
+	}
+
+	/**
+	 * @param array<string, mixed> $config
+	 * @return array<string, mixed>
+	 */
+	private function withFieldUids(array $config): array
+	{
+		if (!empty($config['fieldId'])) {
+			$config['fieldUid'] = Craft::$app->getFields()->getFieldById((int)$config['fieldId'])?->uid;
+		}
+		if (is_array($config['nested'] ?? null)) {
+			$config['nested'] = $this->withFieldUids($config['nested']);
+		}
+
+		return $config;
+	}
+
+	/**
+	 * @param array<string, mixed> $config
+	 * @param string[] $missing Filled with the labels of fields this project doesn't have
+	 * @return array<string, mixed>
+	 */
+	private function withFieldIds(array $config, array &$missing): array
+	{
+		if (!empty($config['fieldUid'])) {
+			$field = Craft::$app->getFields()->getFieldByUid((string)$config['fieldUid']);
+			$config['fieldId'] = $field?->id;
+			if ($field === null) {
+				$missing[] = (string)($config['label'] ?? $config['handle'] ?? '');
+			}
+		}
+		unset($config['fieldUid']);
+		if (is_array($config['nested'] ?? null)) {
+			$config['nested'] = $this->withFieldIds($config['nested'], $missing);
+		}
+
+		return $config;
+	}
+
+	/**
+	 * A name or handle no other exporter of the user for the element type has
+	 */
+	private function uniqueValue(string $attribute, string $value, string $elementType, int $userId, string $glue = ''): string
+	{
+		$taken = array_map(
+			fn(ExporterModel $exporter): string => (string)$exporter->$attribute,
+			array_filter($this->getUserExporters($userId), fn(ExporterModel $exporter): bool => $exporter->elementType === $elementType),
+		);
+
+		$candidate = $value;
+		for ($i = 2; in_array($candidate, $taken, true); $i++) {
+			$candidate = $value . $glue . $i;
+		}
+
+		return $candidate;
 	}
 
 	private function _getExporterRecord(string $uid, bool $withTrashed = false): ExporterRecord

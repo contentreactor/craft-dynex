@@ -10,6 +10,8 @@ class Settings extends Model
 	/** Shown wherever the control panel names the plugin. Blank falls back to the default name. */
 	public string $pluginName = 'Dynamic Exporter';
 	public bool $deregisterDefaultExporters = false;
+	/** How many days export runs and their files are kept, `0` to keep them until they're deleted */
+	public int $exportRetentionDays = 30;
 
 	/**
 	 * @return array<mixed>
@@ -19,6 +21,7 @@ class Settings extends Model
 		return [
 			[['pluginName'], 'trim'],
 			[['pluginName'], 'string', 'max' => 255],
+			[['exportRetentionDays'], 'integer', 'min' => 0],
 		];
 	}
 }

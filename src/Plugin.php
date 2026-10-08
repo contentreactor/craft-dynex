@@ -8,9 +8,12 @@ use ContentReactor\Dynex\migrations\Install;
 use ContentReactor\Dynex\Models\Settings;
 use ContentReactor\Dynex\Services\{
 	Attributes as AttributesService,
+	Columns as ColumnsService,
 	Conditions as ConditionsService,
 	Elements as ElementsService,
+	ExportRuns as ExportRunsService,
 	Exporters as ExportersService,
+	Imports as ImportsService,
 };
 use ContentReactor\Dynex\Web\Twig\{
 	DynexVariable,
@@ -32,13 +35,17 @@ use craft\events\{
 	RegisterUrlRulesEvent,
 	RegisterUserPermissionsEvent,
 };
-use craft\services\UserPermissions;
+use craft\services\{
+	Gc,
+	UserPermissions,
+};
 use craft\web\{
 	UrlManager,
 	View,
 };
 use craft\web\twig\variables\CraftVariable;
 use MarcusGaius\FieldValueParser\FieldValueParser;
+use MarcusGaius\FieldValueParser\Traits\Editions;
 use yii\base\Event;
 
 /**
@@ -47,8 +54,11 @@ use yii\base\Event;
  * @method static Plugin getInstance()
  * @method Settings getSettings()
  * @property AttributesService $attributes
+ * @property ColumnsService $columns
  * @property ElementsService $elements
  * @property ExportersService $exporters
+ * @property ImportsService $imports
+ * @property ExportRunsService $exportRuns
  * @property ConditionsService $conditions
  * @author MarcusGaius <marko.gajic@developion.com>
  * @copyright MarcusGaius
@@ -56,7 +66,11 @@ use yii\base\Event;
  */
 class Plugin extends BasePlugin
 {
-	public string $schemaVersion = '2.0.0';
+	// Lite: exporters, the layout designer and element index exports. Pro: importable exporters and imports, export runs in the
+	// queue with their history, scheduling, delivery, and moving exporters between projects.
+	use Editions;
+
+	public string $schemaVersion = '2.3.0';
 	public bool $hasCpSettings = true;
 	public bool $hasCpSection = true;
 	private string $defaultName;
@@ -69,8 +83,11 @@ class Plugin extends BasePlugin
 		return [
 			'components' => [
 				'attributes' => AttributesService::class,
+				'columns' => ColumnsService::class,
 				'elements' => ElementsService::class,
 				'exporters' => ExportersService::class,
+				'imports' => ImportsService::class,
+				'exportRuns' => ExportRunsService::class,
 				'conditions' => ConditionsService::class,
 			],
 		];
@@ -105,13 +122,8 @@ class Plugin extends BasePlugin
 		//if (Craft::$app->getRequest()->getIsConsoleRequest()) {
 		//}
 
-		if (Craft::$app->getRequest()->getIsCpRequest()) {
-			//$this->registerNativeFields();
-			//$this->registerAssetBundles();
-			$this->registerCpUrlRules();
-			//$this->registerUtilities();
-			//$this->registerWidgets();
-		}
+		// Only CP requests register CP URL rules, however they started, e.g. in tests
+		$this->registerCpUrlRules();
 
 		// Solo has a single admin; Team users get their permissions from the team group
 		if (Craft::$app->edition !== CmsEdition::Solo) {
@@ -187,6 +199,9 @@ class Plugin extends BasePlugin
 				$event->roots['@dynex'] = __DIR__ . '/Templates';
 			}
 		);
+
+		// Old export runs go with Craft's garbage collection
+		Event::on(Gc::class, Gc::EVENT_RUN, fn() => $this->exportRuns->prune());
 
 		//Event::on(
 		//	Fields::class,
@@ -314,6 +329,10 @@ class Plugin extends BasePlugin
 					'dynex:exporters' => [
 						'label' => Craft::t('dynex', 'Manage exporters'),
 						'nested' => $exporterPermissions,
+					],
+					'dynex:import' => [
+						'label' => Craft::t('dynex', 'Import files into importable exporters’ elements'),
+						'info' => Craft::t('dynex', 'Only elements the user can save are changed.'),
 					],
 					'dynex:conditions' => [
 						'label' => Craft::t('dynex', 'Manage conditions'),

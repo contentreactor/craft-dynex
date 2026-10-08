@@ -6,10 +6,12 @@ namespace ContentReactor\Dynex\Exporters;
 use Closure;
 use ContentReactor\Dynex\Events\MapFieldEvent;
 use ContentReactor\Dynex\Models\{
+	Column,
 	Exporter,
 	FieldConfig,
 };
 use ContentReactor\Dynex\Plugin;
+use ContentReactor\Dynex\Services\Columns;
 use Craft;
 use craft\base\{
 	Element,
@@ -22,6 +24,11 @@ use craft\errors\InvalidFieldException;
 use craft\fields\{
 	BaseOptionsField,
 	BaseRelationField,
+};
+use craft\fields\data\{
+	MultiOptionsFieldData,
+	OptionData,
+	SingleOptionFieldData,
 };
 use craft\helpers\Json;
 use DateTimeInterface;
@@ -36,6 +43,12 @@ class DynamicExporter extends ElementExporter
 	public const EVENT_AFTER_MAP_FIELD = 'afterMapField';
 
 	public static ?Exporter $exporter = null;
+
+	/** @var Column[]|null The exporter's columns, worked out once per export */
+	private ?array $columns = null;
+
+	/** The format of the column being mapped, see [[FieldConfig::$format]] */
+	private ?string $format = null;
 
 	public function init(): void
 	{
@@ -92,21 +105,36 @@ class DynamicExporter extends ElementExporter
 	 * Maps an element into one or more rows. Multi-value fields spread their values
 	 * across rows, so the element takes as many rows as its largest value set.
 	 *
+	 * Importable exporters' columns identifying the element hold it on every row, and their importable columns hold values in
+	 * the format they're imported back from, see [[Columns]].
+	 *
 	 * @return array<array<string, string>>
 	 */
 	protected function mapElementFields(Element $element): array
 	{
-		$fieldMapping = self::$exporter->fieldMapping;
-		$labels = $this->getColumnLabels($fieldMapping);
+		$columnsService = Plugin::getInstance()->columns;
 
 		$rawData = [];
+		$repeated = [];
 		$rowCount = 1;
-		foreach ($fieldMapping as $index => $fieldConfig) {
-			$value = $this->normalizeValue($this->mapElementField($element, $fieldConfig));
+		$this->columns ??= $columnsService->getColumns(self::$exporter);
+		$joined = self::$exporter->getEffectiveMultiValueLayout() === Exporter::LAYOUT_JOINED;
+		foreach ($this->columns as $column) {
+			// Formats apply to the values exported for reading. Importable values keep the format they're imported from.
+			$this->format = $column->kind === Column::KIND_READ_ONLY ? $column->fieldConfig?->format : null;
+			$value = $column->kind === Column::KIND_READ_ONLY && $column->fieldConfig !== null
+				? $this->normalizeValue($this->mapElementField($element, $column->fieldConfig))
+				: $columnsService->getValue($column, $element);
+			if ($joined && $value instanceof Collection) {
+				$value = $value->reject(fn(string $item): bool => $item === '')->join($this->separator());
+			}
 			if ($value instanceof Collection) {
 				$rowCount = max($rowCount, $value->count());
 			}
-			$rawData[$labels[$index]] = $value;
+			$rawData[$column->label] = $value;
+			if ($column->identifiesElement()) {
+				$repeated[$column->label] = true;
+			}
 		}
 
 		$data = [];
@@ -118,7 +146,7 @@ class DynamicExporter extends ElementExporter
 					continue;
 				}
 
-				$dataRow[$label] = $i === 0 ? $value : '';
+				$dataRow[$label] = $i === 0 || isset($repeated[$label]) ? $value : '';
 			}
 			$data[] = $dataRow;
 		}
@@ -158,28 +186,6 @@ class DynamicExporter extends ElementExporter
 		}
 
 		return $value;
-	}
-
-	/**
-	 * Column labels for the field mapping. Labels shared by several fields get the field’s handle appended,
-	 * e.g. `Body (content.text:body)`, so no column overwrites another.
-	 *
-	 * @param FieldConfig[] $fieldMapping
-	 * @return array<array-key, string>
-	 */
-	private function getColumnLabels(array $fieldMapping): array
-	{
-		$counts = array_count_values(array_map(fn(FieldConfig $fieldConfig): string => (string) $fieldConfig->label, $fieldMapping));
-
-		$labels = [];
-		foreach ($fieldMapping as $index => $fieldConfig) {
-			$label = (string) $fieldConfig->label;
-			$labels[$index] = $counts[$label] > 1 && is_string($fieldConfig->handle)
-				? "$label ($fieldConfig->handle)"
-				: $label;
-		}
-
-		return $labels;
 	}
 
 	/**
@@ -269,13 +275,11 @@ class DynamicExporter extends ElementExporter
 				return '';
 			}
 
-			$elementsService = Plugin::getInstance()->elements;
-
-			return $related->map(fn(ElementInterface $relatedElement): string => $elementsService->getElementDefaultValue($relatedElement));
+			return $related->map(fn(ElementInterface $relatedElement): string => $this->elementValue($relatedElement));
 		}
 
 		if (is_subclass_of($className, BaseOptionsField::class)) {
-			return (string) $value;
+			return $this->optionsValue($value);
 		}
 
 		return $value;
@@ -311,17 +315,70 @@ class DynamicExporter extends ElementExporter
 		return match (true) {
 			$value === null, $value === [] => '',
 			is_string($value) => $value,
-			is_bool($value) => $value ? '1' : '0',
+			is_bool($value) => $this->booleanValue($value),
 			is_int($value), is_float($value) => (string) $value,
-			$value instanceof DateTimeInterface => $value->format(DateTimeInterface::ATOM),
-			$value instanceof ElementInterface => Plugin::getInstance()->elements->getElementDefaultValue($value),
+			$value instanceof DateTimeInterface => $value->format(FieldConfig::isDateFormat($this->format) ? (string)$this->format : DateTimeInterface::ATOM),
+			$value instanceof ElementInterface => $this->elementValue($value),
 			$value instanceof ElementQueryInterface => $this->stringifyValue($value->collect()),
 			$value instanceof Collection => $value
 				->map(fn(mixed $item): string => $this->stringifyValue($item))
 				->reject(fn(string $item): bool => $item === '')
-				->join(', '),
+				->join($this->separator()),
 			$value instanceof Stringable => (string) $value,
 			default => Json::encode($value),
 		};
+	}
+
+	/**
+	 * An element as its column's format shows it: its ID, UID, URL or slug, or its default value, e.g. an entry's title
+	 */
+	private function elementValue(ElementInterface $element): string
+	{
+		return match ($this->format) {
+			FieldConfig::FORMAT_ID => (string)$element->id,
+			FieldConfig::FORMAT_UID => (string)$element->uid,
+			FieldConfig::FORMAT_URL => (string)$element->getUrl(),
+			FieldConfig::FORMAT_SLUG => (string)$element->slug,
+			default => Plugin::getInstance()->elements->getElementDefaultValue($element),
+		};
+	}
+
+	/**
+	 * The selected options of an options field, by their values, or their labels with the label format
+	 */
+	private function optionsValue(mixed $value): string
+	{
+		if ($this->format !== FieldConfig::FORMAT_LABEL) {
+			return (string) $value;
+		}
+
+		if ($value instanceof SingleOptionFieldData) {
+			return (string) $value->label;
+		}
+
+		if ($value instanceof MultiOptionsFieldData) {
+			return collect($value->getArrayCopy())
+				->map(fn(mixed $option): string => $option instanceof OptionData ? (string)$option->label : (string)$option)
+				->join($this->separator());
+		}
+
+		return (string) $value;
+	}
+
+	private function booleanValue(bool $value): string
+	{
+		return match ($this->format) {
+			FieldConfig::FORMAT_YES_NO => $value ? Craft::t('app', 'Yes') : Craft::t('app', 'No'),
+			FieldConfig::FORMAT_TRUE_FALSE => $value ? 'true' : 'false',
+			default => $value ? '1' : '0',
+		};
+	}
+
+	/**
+	 * What joins lists of values into a cell
+	 */
+	private function separator(): string
+	{
+		return self::$exporter->valueSeparator ?? ', ';
 	}
 }

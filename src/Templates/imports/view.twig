@@ -1,0 +1,105 @@
+{% extends '@dynex/layouts/index.twig' %}
+{% set title = import.filename %}
+
+{# Long files only show their first changes #}
+{% set maxElements = 200 %}
+
+{% macro value(value) %}
+	{%- if value is iterable -%}
+		{{ value is empty ? '–' : value|join(', ') }}
+	{%- else -%}
+		{{ value is same as('') ? '–' : value }}
+	{%- endif -%}
+{% endmacro %}
+
+{% block actionButton %}
+	{% if import.isPending() %}
+		<form method="post" class="flex">
+			{{ csrfInput() }}
+			{{ hiddenInput('importId', import.id) }}
+			<button type="submit" class="btn" name="action" value="dynex/imports/delete">{{ 'Discard'|t('dynex') }}</button>
+			{% if import.elements is not empty %}
+				<button type="submit" class="btn submit" name="action" value="dynex/imports/apply">{{ 'Import {count} elements'|t('dynex', { count: import.elements|length }) }}</button>
+			{% endif %}
+		</form>
+	{% endif %}
+{% endblock %}
+
+{% block content %}
+	<p>{{ include('@dynex/imports/_status.twig', { import: import }) }}</p>
+
+	<ul class="dynex-import-summary">
+		<li>{{ '{count} rows read'|t('dynex', { count: import.rowCount }) }}</li>
+		{% if import.isFinished() %}
+			<li>{{ '{count} elements saved'|t('dynex', { count: import.savedCount }) }}</li>
+		{% else %}
+			<li>{{ '{count} changes to {elements} elements'|t('dynex', { count: import.getChangeCount(), elements: import.elements|length }) }}</li>
+		{% endif %}
+		<li>{{ '{count} elements unchanged'|t('dynex', { count: import.unchangedCount }) }}</li>
+		{% if import.ignoredColumns is not empty %}
+			<li>{{ 'Columns {exporter} doesn’t have, which are left out: {columns}'|t('dynex', { exporter: exporter.name, columns: import.ignoredColumns|join(', ') }) }}</li>
+		{% endif %}
+	</ul>
+
+	{% if import.status in ['queued', 'running'] %}
+		<p class="light">{{ 'The import is running in the queue. Reload the page to see how it went.'|t('dynex') }}</p>
+	{% endif %}
+
+	{% if import.errors is not empty %}
+		<h2>{{ 'Errors'|t('dynex') }}</h2>
+		<table class="data fullwidth" id="dynex-import-errors">
+			<thead>
+				<tr>
+					<th scope="col">{{ 'Rows'|t('dynex') }}</th>
+					<th scope="col">{{ 'Error'|t('dynex') }}</th>
+				</tr>
+			</thead>
+			<tbody>
+				{% for error in import.errors %}
+					<tr>
+						<td>{{ error.rows is empty ? '–' : error.rows|join(', ') }}</td>
+						<td>{{ error.message }}</td>
+					</tr>
+				{% endfor %}
+			</tbody>
+		</table>
+	{% endif %}
+
+	{% if import.elements is not empty %}
+		<h2>{{ import.isPending() ? 'What the file changes'|t('dynex') : 'Changes'|t('dynex') }}</h2>
+		<table class="data fullwidth" id="dynex-import-changes">
+			<thead>
+				<tr>
+					<th scope="col">{{ 'Element'|t('dynex') }}</th>
+					<th scope="col">{{ 'Rows'|t('dynex') }}</th>
+					<th scope="col">{{ 'Column'|t('dynex') }}</th>
+					<th scope="col">{{ 'Before'|t('dynex') }}</th>
+					<th scope="col">{{ 'After'|t('dynex') }}</th>
+				</tr>
+			</thead>
+			<tbody>
+				{% for element in import.elements|slice(0, maxElements) %}
+					{% for change in element.changes %}
+						<tr>
+							{% if loop.first %}
+								<th scope="row" rowspan="{{ element.changes|length }}">{{ element.title }} <span class="light">#{{ element.id }}</span></th>
+								<td rowspan="{{ element.changes|length }}">{{ element.rows|join(', ') }}</td>
+							{% endif %}
+							<td>{{ change.column }}</td>
+							<td class="dynex-import-value">{{ _self.value(change.old) }}</td>
+							<td class="dynex-import-value">{{ _self.value(change.new) }}</td>
+						</tr>
+					{% endfor %}
+				{% endfor %}
+			</tbody>
+		</table>
+		{% if import.elements|length > maxElements %}
+			<p class="light">{{ 'And {count} more elements.'|t('dynex', { count: import.elements|length - maxElements }) }}</p>
+		{% endif %}
+	{% endif %}
+{% endblock %}
+
+{% css %}
+.dynex-import-summary { margin-bottom: 1.5em; }
+.dynex-import-value { white-space: pre-wrap; word-break: break-word; max-width: 30em; }
+{% endcss %}

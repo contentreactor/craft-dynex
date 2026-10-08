@@ -19,8 +19,10 @@ use craft\helpers\{
 };
 use craft\web\{
 	Controller,
+	UploadedFile,
 	View,
 };
+use InvalidArgumentException;
 use yii\web\{
 	BadRequestHttpException,
 	NotFoundHttpException,
@@ -115,6 +117,8 @@ class ExportersController extends Controller
 			'crumbs' => $crumbs,
 			'elementTypes' => $elementTypes,
 			'elementSources' => $elementSources ?? [],
+			'elementPlural' => $exporter->elementType ? $exporter->elementType::pluralLowerDisplayName() : '',
+			'columns' => $exporter->elementType ? Plugin::getInstance()->columns->getColumns($exporter) : [],
 		]);
 	}
 
@@ -139,6 +143,20 @@ class ExportersController extends Controller
 		$exporter->handle = $this->request->getBodyParam('handle', $exporter->handle);
 		$exporter->elementType = $this->request->getBodyParam('elementType', $exporter->elementType);
 		$exporter->elementSources = $this->request->getBodyParam('elementSources', $exporter->elementSources);
+		$exporter->multiValueLayout = (string) $this->request->getBodyParam('multiValueLayout', $exporter->multiValueLayout);
+		$exporter->valueSeparator = (string) $this->request->getBodyParam('valueSeparator', $exporter->valueSeparator);
+
+		// Importable exporters and export runs are Pro features, which the Lite edition leaves as they are
+		if (Plugin::getInstance()->isPro()) {
+			$exporter->importable = (bool) $this->request->getBodyParam('importable', $exporter->importable);
+			$exporter->setOptions(array_intersect_key($this->request->getBodyParams(), array_flip([
+				'runFormat',
+				'runSite',
+				'runEnabledOnly',
+				'runCreatedWithinDays',
+				'deliveryEmails',
+			])));
+		}
 
 		// New exporters can have fields mapped too, since the designer renders before the first save
 		$fieldLayout = $this->request->getBodyParam('fieldLayout');
@@ -172,6 +190,51 @@ class ExportersController extends Controller
 		}
 
 		return $this->asSuccess(Craft::t('dynex', 'Exporter deleted.'));
+	}
+
+	/**
+	 * Downloads one of the current user's exporters as JSON, to import it into another project
+	 */
+	public function actionDownloadDefinition(int $exporterId): Response
+	{
+		Plugin::getInstance()->requirePro(Craft::t('dynex', 'Moving exporters between projects'));
+
+		$exporter = Plugin::getInstance()->getExporters()->getUserExporterById($exporterId)
+			?? throw new NotFoundHttpException('Exporter not found');
+		$json = Json::encode(Plugin::getInstance()->getExporters()->getDefinition($exporter), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+		return $this->response->sendContentAsFile($json, "$exporter->handle.json", ['mimeType' => 'application/json']);
+	}
+
+	/**
+	 * Creates an exporter for the current user from an uploaded JSON file, downloaded from this project or another
+	 */
+	public function actionImportDefinition(): ?Response
+	{
+		$this->requirePostRequest();
+		Plugin::getInstance()->requirePro(Craft::t('dynex', 'Moving exporters between projects'));
+
+		$file = UploadedFile::getInstanceByName('definition');
+		if ($file === null || $file->getHasError()) {
+			return $this->asFailure(Craft::t('dynex', 'Choose an exporter’s JSON file.'));
+		}
+
+		$definition = Json::decodeIfJson((string)file_get_contents($file->tempName));
+		try {
+			[$exporter, $missing] = Plugin::getInstance()->getExporters()->createFromDefinition(is_array($definition) ? $definition : [], $this->currentUserOrFail());
+		} catch (InvalidArgumentException $e) {
+			return $this->asFailure($e->getMessage());
+		}
+
+		if (!$exporter->id) {
+			return $this->asFailure(Craft::t('dynex', 'Couldn’t import the exporter: {errors}', ['errors' => implode(' ', $exporter->getFirstErrors())]));
+		}
+
+		$this->setSuccessFlash($missing === []
+			? Craft::t('dynex', 'Exporter imported.')
+			: Craft::t('dynex', 'Exporter imported. This project doesn’t have these fields, which export nothing: {fields}', ['fields' => implode(', ', $missing)]));
+
+		return $this->redirect(UrlHelper::cpUrl("dynex/exporters/$exporter->id"));
 	}
 
 	public function actionExporterSources(): Response
