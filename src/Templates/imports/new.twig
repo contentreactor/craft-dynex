@@ -1,0 +1,52 @@
+{% extends '@dynex/layouts/index.twig' %}
+{% set title = 'Import into {exporter}'|t('dynex', { exporter: exporter.name }) %}
+
+{% import '_includes/forms.twig' as forms %}
+
+{% block content %}
+	<form method="post" accept-charset="UTF-8" enctype="multipart/form-data">
+		{{ csrfInput() }}
+		{{ actionInput('dynex/imports/upload') }}
+		{{ hiddenInput('exporterId', exporter.id) }}
+
+		{{ forms.fileField({
+			first: true,
+			label: 'File'|t('dynex'),
+			instructions: 'A {types} file exported with {exporter}, and edited since. Nothing is saved before you review what it changes.'|t('dynex', {
+				types: extensions|map(e => e|upper)|join(', '),
+				exporter: exporter.name,
+			}),
+			id: 'file',
+			name: 'file',
+			inputAttributes: { accept: extensions|map(e => '.' ~ e)|join(','), required: true },
+			required: true,
+		}) }}
+
+		<button type="submit" class="btn submit">{{ 'Upload'|t('dynex') }}</button>
+	</form>
+
+	{% if imports is not empty %}
+		<hr>
+		<h2>{{ 'Imports'|t('dynex') }}</h2>
+		<table class="data fullwidth" id="dynex-imports">
+			<thead>
+				<tr>
+					<th scope="col">{{ 'File'|t('dynex') }}</th>
+					<th scope="col">{{ 'Uploaded'|t('dynex') }}</th>
+					<th scope="col">{{ 'Status'|t('dynex') }}</th>
+					<th scope="col">{{ 'Elements changed'|t('dynex') }}</th>
+				</tr>
+			</thead>
+			<tbody>
+				{% for import in imports %}
+					<tr>
+						<th scope="row"><a href="{{ url('dynex/imports/' ~ import.id) }}">{{ import.filename }}</a></th>
+						<td>{{ import.dateCreated ? import.dateCreated|datetime('short') }}</td>
+						<td>{{ include('@dynex/imports/_status.twig', { import: import }) }}</td>
+						<td>{{ import.isFinished() ? import.savedCount : import.elements|length }}</td>
+					</tr>
+				{% endfor %}
+			</tbody>
+		</table>
+	{% endif %}
+{% endblock %}

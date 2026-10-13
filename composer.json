@@ -1,0 +1,42 @@
+{
+	"name": "contentreactor/craft-dynex",
+	"description": "Build your own element exports in the Craft CMS control panel, mapping fields, native attributes and nested fields to columns.",
+	"type": "craft-plugin",
+	"license": "proprietary",
+	"support": {
+		"email": "support@contentreactor.com",
+		"issues": "https://github.com/contentreactor/craft-dynex/issues?state=open",
+		"source": "https://github.com/contentreactor/craft-dynex",
+		"docs": "https://github.com/contentreactor/craft-dynex",
+		"rss": "https://github.com/contentreactor/craft-dynex/releases.atom"
+	},
+	"require": {
+		"php": ">=8.2",
+		"craftcms/cms": "^5.8",
+		"marcusgaius/field-value-parser": "^1.1"
+	},
+	"autoload": {
+		"psr-4": {
+			"ContentReactor\\Dynex\\Web\\Assets\\": "public/",
+			"ContentReactor\\Dynex\\": "src/"
+		}
+	},
+	"extra": {
+		"handle": "dynex",
+		"name": "Dynamic Exporter",
+		"developer": "ContentReactor",
+		"documentationUrl": "https://github.com/contentreactor/craft-dynex",
+		"developerUrl": "https://www.contentreactor.com/",
+		"changelogUrl": "https://raw.githubusercontent.com/contentreactor/craft-dynex/main/CHANGELOG.md"
+	},
+	"config": {
+		"sort-packages": true,
+		"allow-plugins": {
+			"craftcms/plugin-installer": true,
+			"pestphp/pest-plugin": true,
+			"yiisoft/yii2-composer": true
+		}
+	},
+	"minimum-stability": "dev",
+	"prefer-stable": true
+}

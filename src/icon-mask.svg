@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+	<!-- The control panel menu icon: the same shapes as icon.svg, in one color (Craft tints it). -->
+	<path fill-rule="evenodd" d="M18 8H50L72 30V52H39V80H72V82A8 8 0 0 1 64 90H18A8 8 0 0 1 10 82V16A8 8 0 0 1 18 8ZM20 36V44H52V36ZM20 54V62H31V54ZM20 70V78H31V70Z"/>
+	<path d="M48 60H78V46L98 66L78 86V72H48Z"/>
+</svg>

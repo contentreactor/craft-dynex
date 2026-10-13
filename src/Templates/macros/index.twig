@@ -1,0 +1,10 @@
+{% macro exporterLayoutDesigner(config) %}
+	{% if 'exporter' in config | keys %}
+		{% from '_includes/forms.twig' import field %}
+		{{ field({
+			label: 'Exporter Layout'|t('app'),
+			errors: (config.fieldLayout ?? false) ? config.fieldLayout.getErrorSummary(true),
+			elementType: null,
+		}|merge(config), 'template:@dynex/includes/exporterLayoutDesigner.twig') }}
+	{% endif %}
+{% endmacro %}

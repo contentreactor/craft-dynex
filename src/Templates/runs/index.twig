@@ -1,0 +1,79 @@
+{% extends '@dynex/layouts/index.twig' %}
+{% set title = 'Export runs of {exporter}'|t('dynex', { exporter: exporter.name }) %}
+
+{% set statuses = {
+	queued: { label: 'Queued'|t('dynex'), color: 'blue' },
+	running: { label: 'Running'|t('dynex'), color: 'blue' },
+	done: { label: 'Exported'|t('dynex'), color: 'green' },
+	failed: { label: 'Failed'|t('dynex'), color: 'red' },
+} %}
+
+{% block actionButton %}
+	<form method="post">
+		{{ csrfInput() }}
+		{{ actionInput('dynex/export-runs/run') }}
+		{{ hiddenInput('exporterId', exporter.id) }}
+		<button type="submit" class="btn submit">{{ 'Run now'|t('dynex') }}</button>
+	</form>
+{% endblock %}
+
+{% block content %}
+	<p class="light">
+		{{ 'Runs export {elements} as {format}, and keep their files for the days the plugin settings say.'|t('dynex', {
+			elements: exporter.runEnabledOnly ? 'the enabled elements of the exporter’s sources'|t('dynex') : 'all elements of the exporter’s sources'|t('dynex'),
+			format: exporter.runFormat|upper,
+		}) }}
+		{{ 'Schedule them with {command}.'|t('dynex', { command: tag('code', { text: 'php craft dynex/exports/run ' ~ exporter.uid }) })|raw }}
+	</p>
+
+	{% if runs is empty %}
+		<p>{{ 'No exports have run yet.'|t('dynex') }}</p>
+	{% else %}
+		<table class="data fullwidth" id="dynex-export-runs">
+			<thead>
+				<tr>
+					<th scope="col">{{ 'Started'|t('dynex') }}</th>
+					<th scope="col">{{ 'Status'|t('dynex') }}</th>
+					<th scope="col">{{ 'Elements'|t('dynex') }}</th>
+					<th scope="col">{{ 'File'|t('dynex') }}</th>
+					<th scope="col">{{ 'Notes'|t('dynex') }}</th>
+					<th scope="col"><span class="visually-hidden">{{ 'Actions'|t('dynex') }}</span></th>
+				</tr>
+			</thead>
+			<tbody>
+				{% for run in runs %}
+					{% set status = statuses[run.status] ?? { label: run.status, color: 'gray' } %}
+					<tr>
+						<td>
+							{{ run.dateCreated ? run.dateCreated|datetime('short') }}
+							<span class="light">{{ run.trigger == 'console' ? 'Console'|t('dynex') : 'Control panel'|t('dynex') }}</span>
+						</td>
+						<td><span class="status-label {{ status.color }}"><span class="status {{ status.color }}"></span><span class="status-label-text">{{ status.label }}</span></span></td>
+						<td>{{ run.isFinished() ? run.elementCount : '–' }}</td>
+						<td>
+							{% if run.hasFile() %}
+								<a href="{{ url('dynex/export-runs/' ~ run.id ~ '/download') }}">{{ run.filename }}</a>
+							{% else %}
+								–
+							{% endif %}
+						</td>
+						<td>
+							{% if run.deliveredTo %}{{ 'Emailed to {emails}'|t('dynex', { emails: run.deliveredTo }) }}{% endif %}
+							{% if run.error %}<span class="error">{{ run.error }}</span>{% endif %}
+						</td>
+						<td>
+							{% if run.isFinished() %}
+								<form method="post">
+									{{ csrfInput() }}
+									{{ actionInput('dynex/export-runs/delete') }}
+									{{ hiddenInput('runId', run.id) }}
+									<button type="submit" class="btn small">{{ 'Delete'|t('dynex') }}</button>
+								</form>
+							{% endif %}
+						</td>
+					</tr>
+				{% endfor %}
+			</tbody>
+		</table>
+	{% endif %}
+{% endblock %}
